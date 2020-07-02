@@ -49,6 +49,8 @@ class MapGenerator
     {
       ros::NodeHandle n;
       ROS_INFO("Waiting for the map");
+//      map_sub_ = n.subscribe("map_merge/map", 1, &MapGenerator::mapCallback, this);
+//      map_sub_ = n.subscribe("carto/map", 1, &MapGenerator::mapCallback, this);
       map_sub_ = n.subscribe("map", 1, &MapGenerator::mapCallback, this);
     }
 
@@ -71,15 +73,41 @@ class MapGenerator
 
       fprintf(out, "P5\n# CREATOR: Map_generator.cpp %.3f m/pix\n%d %d\n255\n",
               map->info.resolution, map->info.width, map->info.height);
-      for(unsigned int y = 0; y < map->info.height; y++) {
-  	for(unsigned int x = 0; x < map->info.width; x++) {
-    	  unsigned int i = x + (map->info.height - y - 1) * map->info.width;
-          std::cout << (100.0-map->data[i]) << " ";
-    	  int pixel = (double)(100.0-map->data[i]) * 2.54;
-          //std::cout << pixel << " ";
-    	  fputc(pixel, out);
+      for(unsigned int y = 0; y < map->info.height; y++)
+      {
+  	    for(unsigned int x = 0; x < map->info.width; x++)
+        {
+    	    unsigned int i = x + (map->info.height - y - 1) * map->info.width;
+          std::cout << (100.0 - map->data[i]) << " ";
+
+          /************************* map_server source code ****************************/
+          //  if (map->data[i] == 0) { //occ [0,0.1)
+          //    fputc(254, out);  //自由区域，用白色灰度值254表示
+          //  } else if (map->data[i] == +100) { //occ (0.65,1]
+          //    fputc(000, out);  //占据区域（障碍），用黑色灰度值000表示
+          //  } else { //occ [0.1,0.65]
+          //    fputc(205, out);  //未知区域，用灰度值205表示
+          //  }
+          /*****************************************************************************/
+
+          /**************** cartographer saving map with value [0,101] *****************/
+          //未知区域，用灰度值101表示
+//            int pixel = (double)(100.0-map->data[i]) * 2.54;
+//            std::cout << pixel << " ";
+//            fputc(pixel, out);
+          /*****************************************************************************/
+
+          /******************** cartographer saving map to 3 values ********************/
+          if (map->data[i] >= 0 && map->data[i] < 49) { //occ [0,0.49)
+            fputc(254, out);
+          } else if (map->data[i] > 55) { //occ (0.55,1]
+            fputc(000, out);
+          } else { //occ [0.49,0.55]
+            fputc(205, out);
+          }
+          /*****************************************************************************/
         }
-        //std::cout << "\n";
+        std::cout << "\n";
       }
 
       fclose(out);
@@ -110,7 +138,7 @@ free_thresh: 0.196
       double yaw, pitch, roll;
       mat.getEulerYPR(yaw, pitch, roll);
 
-      fprintf(yaml, "image: %s\nresolution: %f\norigin: [%f, %f, %f]\nnegate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.196\n\n",
+      fprintf(yaml, "image: %s\nresolution: %f\norigin: [%f, %f, %f]\nnegate: 0\noccupied_thresh: 0.55\nfree_thresh: 0.49\n\n",
               mapdatafile.c_str(), map->info.resolution, map->info.origin.position.x, map->info.origin.position.y, yaw);
 
       fclose(yaml);
